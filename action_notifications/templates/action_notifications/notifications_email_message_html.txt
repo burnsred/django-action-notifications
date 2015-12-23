@@ -1,0 +1,21 @@
+{% extends 'action_notifications/base_html_email.txt' %}{% load action_notifications_tags %}
+
+{% block content %}
+    <h2 style="color: #266d48; line-height: 30px; margin-bottom: 12px; margin: 0 0 12px;">
+        Hi {{ receiver.first_name }},
+    </h2>
+
+    <p style="font-size: 17px; line-height: 24px; margin: 0 0 16px;">
+        You have {{ notifications|length|pluralize:"a ," }}new notification{{ notifications|length|pluralize }}:
+    </p>
+
+    {% for notification in notifications %}
+    <hr style="border: none; border-bottom: 1px solid #ECECEC; margin: 1.5rem 0; width: 100%;">
+
+        {% notification_message notification.action receiver=receiver %}
+        {% if notification.action.data.url %}
+            <br/>
+            <a href="{{ notification.action.data.url }}">Click here to view</a>
+        {% endif %}
+    {% endfor %}
+{% endblock content %}

@@ -1,0 +1,26 @@
+inherits:
+    - no_test_warnings
+    - strictness_medium
+
+pyflakes:
+    run: false
+
+dodgy:
+    run: false
+
+frosted:
+    run: false
+
+mccabe:
+    run: false
+
+pep8:
+    options:
+        max-line-length: 1000
+
+pylint:
+    disable:
+        - E1101
+        - R0401
+    option:
+        max-line-length: 120
