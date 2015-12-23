@@ -3,6 +3,14 @@ from distutils.core import setup
 
 os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
+def get_packages(package):
+    """
+    Return root package and all sub-packages.
+    """
+    return [dirpath
+            for dirpath, dirnames, filenames in os.walk(package)
+            if os.path.exists(os.path.join(dirpath, '__init__.py'))]
+
 def get_package_data(package):
     """
     Return all files under the root package, that are not in a
@@ -20,8 +28,8 @@ def get_package_data(package):
 
 setup(
     name='django-action-notifications',
-    version='0.0.1',
-    packages=['action_notifications',],
+    version='0.0.2',
+    packages=get_packages('action_notifications'),
     include_package_data=True,
 	package_data=get_package_data('action_notifications'),
     license='MIT License',
