@@ -1,4 +1,13 @@
+try:
+    from django.apps import apps
+
+    def get_model(app_label, model_name):
+        return apps.get_registered_model(app_label, model_name)
+except ImportError:
+    from django.db.models.loading import get_model
+
 from django.contrib.auth.models import User
+from django.utils import six
 
 handlers = []
 
@@ -24,6 +33,16 @@ def get_message(action, *args, **kwargs):
 
         for condition, value in conditions.iteritems():
             if condition.endswith('_type'):
+                if isinstance(value, six.string_types):
+                    try:
+                        app_label, model_name = value.split('.')
+                    except ValueError:
+                        raise ValueError(
+                            'Specified type must either be a type or a '
+                            'model name of the \'app_label.ModelName\' form.'
+                        )
+
+                    value = get_model(app_label, model_name)
                 is_satisfied = isinstance(getattr(action, condition[0:-5]), value)
             else:
                 is_satisfied = getattr(action, condition) == value
