@@ -2,7 +2,8 @@ from django.db import models
 from django.db.models import Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.contrib.auth.models import User
+from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 
 from actstream.models import Action, Follow
@@ -14,7 +15,7 @@ except ImportError:
 
 class ActionNotification(models.Model):
     action = models.ForeignKey(Action)
-    user = models.ForeignKey(User, db_index=True, related_name='+')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, db_index=True, related_name='+')
 
     is_should_email = models.BooleanField(default=False, db_index=True)
 
@@ -66,7 +67,7 @@ def create_action_notification(sender, instance, **kwargs): # pylint: disable-ms
     ).values_list('user')
 
     # Create a notification for each user
-    for user in User.objects.filter(id__in=follow_users):
+    for user in get_user_model().objects.filter(pk__in=follow_users):
         # Don't notify the user who did the action
         if action.actor == user:
             continue
@@ -85,5 +86,5 @@ def create_action_notification(sender, instance, **kwargs): # pylint: disable-ms
         action_notification.save()
 
         if default_pusher is not None:
-            channel_name = "private-user-notifications-{}".format(user.username)
+            channel_name = "private-user-notifications-{}".format(user.get_username())
             default_pusher.trigger(channel_name, 'new-notification', {})
