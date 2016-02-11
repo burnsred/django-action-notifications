@@ -6,7 +6,7 @@ try:
 except ImportError:
     from django.db.models.loading import get_model
 
-from django.contrib.auth.models import User
+from django.conf import settings
 from django.utils import six
 
 handlers = []
@@ -56,7 +56,7 @@ def get_message(action, *args, **kwargs):
 def default_handler(action, **_):
     return action.__unicode__()
 
-@message_handler(actor_type=User)
+@message_handler(actor_type=settings.AUTH_USER_MODEL)
 def user_actor_handler(action, **_):
     context = {
         'actor_name': '{} {}'.format(action.actor.first_name, action.actor.last_name),
