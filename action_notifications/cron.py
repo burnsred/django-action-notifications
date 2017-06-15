@@ -1,4 +1,5 @@
 from itertools import groupby
+import logging
 import sys
 
 from django.conf import settings
@@ -7,10 +8,61 @@ from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
 from django.template import Context
 from django.template.loader import get_template
+from django.utils import timezone
 
 import kronos
 
-from action_notifications import models
+from . import messages, models
+
+logger = logging.getLogger(__name__)
+
+
+def send_notifications_to_user(user, notifications, current_site):
+    try:
+        with transaction.atomic():
+            subject_template = get_template('action_notifications/notifications_email_subject.txt')
+            message_text_template = get_template('action_notifications/notifications_email_message_text.txt')
+            message_html_template = get_template('action_notifications/notifications_email_message_html.txt')
+
+            context = Context({
+                'receiver': user,
+                'notifications': notifications,
+                'base_url': '{}://{}'.format(
+                    'http' if settings.DEBUG else 'https',
+                    current_site.domain
+                )
+            })
+
+            has_one_notification = len(notifications) == 1
+
+            subject = None
+            if has_one_notification and notifications[0].message_subject is not None:
+                subject = notifications[0].message_subject
+            else:
+                subject = subject_template.render(context)
+
+            from_email = None
+            if has_one_notification and notifications[0].message_from is not None:
+                from_email = notifications[0].message_from
+            else:
+                from_email = settings.ACTION_NOTIFICATION_REPLY_EMAIL
+
+            message = EmailMultiAlternatives(
+                subject,
+                message_text_template.render(context),
+                from_email,
+                [user.email]
+            )
+            message.attach_alternative(message_html_template.render(context), 'text/html')
+            message.send(fail_silently=False)
+
+            for notification in notifications:
+                notification.is_emailed = True
+                notification.when_emailed = timezone.now()
+                notification.save()
+    except Exception:
+        logger.exception('Failed to send notifications for user %s', user.username)
+
 
 def send_email_notifications_with_frequency(frequency):
     with transaction.atomic():
@@ -42,40 +94,24 @@ def send_email_notifications_with_frequency(frequency):
         for user, notifications in notifications_by_user:
             if not user.email:
                 continue
+            logger.debug('Sending emails for %s (%s)', user.username, user.email)
+            notifications = list(notifications)
 
-            try:
-                with transaction.atomic():
-                    notifications = list(notifications)
+            email_separately = [
+                notification
+                for notification in notifications
+                if notification.is_should_email_separately
+            ]
+            email_together = [
+                notification
+                for notification in notifications
+                if not notification.is_should_email_separately
+            ]
+            for notification in email_separately:
+                send_notifications_to_user(user, [notification], current_site)
+            if len(email_together) > 0:
+                send_notifications_to_user(user, email_together, current_site)
 
-                    subject_template = get_template('action_notifications/notifications_email_subject.txt')
-                    message_text_template = get_template('action_notifications/notifications_email_message_text.txt')
-                    message_html_template = get_template('action_notifications/notifications_email_message_html.txt')
-
-                    context = Context({
-                        'receiver': user,
-                        'notifications': notifications,
-                        'base_url': '{}://{}'.format(
-                            'http' if settings.DEBUG else 'https',
-                            current_site.domain
-                        )
-                    })
-
-                    message = EmailMultiAlternatives(
-                        subject_template.render(context),
-                        message_text_template.render(context),
-                        settings.ACTION_NOTIFICATION_REPLY_EMAIL,
-                        [user.email]
-                    )
-                    message.attach_alternative(message_html_template.render(context), 'text/html')
-                    message.send(fail_silently=False)
-
-                    for notification in notifications:
-                        notification.is_emailed = True
-                        notification.save()
-            except Exception as e:
-                print >> sys.stderr, e
-
-    return
 
 def register_email_notifications(frequency):
     '''Register a handler for the given cron string'''

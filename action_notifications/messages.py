@@ -50,7 +50,10 @@ def get_message(action, *args, **kwargs):
             all_satisfied = all_satisfied and is_satisfied
 
         if all_satisfied:
-            return handler(action, *args, **kwargs)
+            results = handler(action, *args, **kwargs)
+            if isinstance(results, six.string_types):
+                return (results, None, None,)
+            return results
 
 @message_handler()
 def default_handler(action, **_):
@@ -67,8 +70,8 @@ def user_actor_handler(action, **_):
     }
     if action.target:
         if action.action_object:
-            return '%(actor_name)s %(verb)s %(action_object)s on %(target)s %(timesince)s ago' % context
-        return '%(actor_name)s %(verb)s %(target)s %(timesince)s ago' % context
+            return u'%(actor_name)s %(verb)s %(action_object)s on %(target)s %(timesince)s ago' % context
+        return u'%(actor_name)s %(verb)s %(target)s %(timesince)s ago' % context
     if action.action_object:
-        return '%(actor_name)s %(verb)s %(action_object)s %(timesince)s ago' % context
-    return '%(actor_name)s %(verb)s %(timesince)s ago' % context
+        return u'%(actor_name)s %(verb)s %(action_object)s %(timesince)s ago' % context
+    return u'%(actor_name)s %(verb)s %(timesince)s ago' % context

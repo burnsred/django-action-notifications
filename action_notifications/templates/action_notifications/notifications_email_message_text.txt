@@ -1,10 +1,10 @@
-{% extends 'action_notifications/base_text_email.txt' %}{% load action_notifications_tags %}
+{% extends 'action_notifications/base_text_email.txt' %}
 
 {% block content %}Hi {{ receiver.first_name }},
 
 You have {{ notifications|length|pluralize:"a ," }}new notification{{ notifications|length|pluralize }}:
 
-{% for notification in notifications %}{% notification_message notification.action receiver=receiver %}
+{% for notification in notifications %}{{ notification.message_body }}
 {% if notification.action.data.url %}View here: {{ notification.action.data.url }}{% endif %}
 {% endfor %}
 {% endblock content %}

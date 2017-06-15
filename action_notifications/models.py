@@ -7,20 +7,24 @@ from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 
 from actstream.models import Action, Follow
-
 try:
     from br_pusher import default_pusher
 except ImportError:
     default_pusher = None
+
+from . import messages
 
 class ActionNotification(models.Model):
     action = models.ForeignKey(Action)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, db_index=True, related_name='+')
 
     is_should_email = models.BooleanField(default=False, db_index=True)
+    is_should_email_separately = models.BooleanField(default=False)
 
     is_read = models.BooleanField(default=False, db_index=True)
     is_emailed = models.BooleanField(default=False, db_index=True)
+
+    when_emailed = models.DateTimeField(blank=True, null=True)
 
     created = models.DateTimeField(auto_now_add=True)
 
@@ -36,15 +40,41 @@ class ActionNotification(models.Model):
             'read' if self.is_read else 'unread'
         )
 
+    def _load_message(self):
+        if not hasattr(self, '_message'):
+            self._message = messages.get_message(self.action, self.user)
+
+    @property
+    def message_body(self):
+        self._load_message()
+        return self._message[0]
+
+    @property
+    def message_subject(self):
+        self._load_message()
+        return self._message[1]
+
+    @property
+    def message_from(self):
+        self._load_message()
+        if len(self._message) > 2:
+            return self._message[2]
+        return None
+
 class ActionNotificationPreference(models.Model):
     EMAIL_NOTIFICATION_FREQUENCIES = (
+        ('* * * * *', 'Immediately',),
         ('*/30 * * * *', 'Every 30 minutes',),
         ('@daily', 'Daily',),
     )
 
-    action_verb = models.CharField(max_length=255, unique=True, blank=True)
-    is_should_email = models.BooleanField()
+    action_verb = models.CharField(max_length=255, unique=True)
 
+    is_should_notify_actor = models.BooleanField(default=False)
+
+    # Email preferences
+    is_should_email = models.BooleanField(default=False)
+    is_should_email_separately = models.BooleanField(default=False)
     email_notification_frequency = models.CharField(
         max_length=64,
         choices=EMAIL_NOTIFICATION_FREQUENCIES,
@@ -68,21 +98,15 @@ def create_action_notification(sender, instance, **kwargs): # pylint: disable-ms
 
     # Create a notification for each user
     for user in get_user_model().objects.filter(pk__in=follow_users):
-        # Don't notify the user who did the action
-        if action.actor == user:
+        notification_preference, _ = ActionNotificationPreference.objects.get_or_create(action_verb=action.verb)
+
+        if not notification_preference.is_should_notify_actor and action.actor == user:
+            # Don't notify the user who did the action
             continue
 
-        action_notification = ActionNotification(
-            action=action,
-            user=user
-        )
-
-        try:
-            notification_preference = ActionNotificationPreference.objects.get(action_verb=action.verb)
-            action_notification.is_should_email = notification_preference.is_should_email
-        except ActionNotificationPreference.DoesNotExist, _:
-            action_notification.is_should_email = False
-
+        action_notification = ActionNotification(action=action, user=user)
+        action_notification.is_should_email = notification_preference.is_should_email
+        action_notification.is_should_email_separately = notification_preference.is_should_email_separately
         action_notification.save()
 
         if default_pusher is not None:
