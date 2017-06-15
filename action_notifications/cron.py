@@ -1,6 +1,5 @@
 from itertools import groupby
 import logging
-import sys
 
 from django.conf import settings
 from django.contrib.sites.models import Site
@@ -12,7 +11,7 @@ from django.utils import timezone
 
 import kronos
 
-from . import messages, models
+from . import models
 
 logger = logging.getLogger(__name__)
 
