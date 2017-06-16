@@ -71,6 +71,7 @@ class ActionNotificationPreference(models.Model):
     action_verb = models.CharField(max_length=255, unique=True)
 
     is_should_notify_actor = models.BooleanField(default=False)
+    is_should_notify_actor_when_target = models.BooleanField(default=False)
 
     # Email preferences
     is_should_email = models.BooleanField(default=False)
@@ -100,8 +101,13 @@ def create_action_notification(sender, instance, **kwargs): # pylint: disable-ms
     for user in get_user_model().objects.filter(pk__in=follow_users):
         notification_preference, _ = ActionNotificationPreference.objects.get_or_create(action_verb=action.verb)
 
-        if not notification_preference.is_should_notify_actor and action.actor == user:
-            # Don't notify the user who did the action
+        if not notification_preference.is_should_notify_actor \
+            and action.actor == user \
+            and ( \
+                not notification_preference.is_should_notify_actor_when_target \
+                or action.target != user \
+            ):
+            # Don't notify the user who did the action under these conditions
             continue
 
         action_notification = ActionNotification(action=action, user=user)

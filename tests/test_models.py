@@ -92,3 +92,33 @@ class ActionNotificationPreferenceTestCase(BaseTestCase):
 
         # Has no preference, should be false by default
         self.assertEquals(action_notification_2.is_should_email, False)
+
+    def test_is_should_notify_actor(self):
+        follow(self.user1, self.user1, actor_only=False)
+
+        preference = models.ActionNotificationPreference.objects.create(action_verb='gyred and gimbled in')
+
+        preference.is_should_notify_actor = False
+        preference.save()
+        action.send(self.user1, verb='gyred and gimbled in', target=self.group)
+        self.assertFalse(models.ActionNotification.objects.filter(action__verb='gyred and gimbled in').exists())
+
+        preference.is_should_notify_actor = True
+        preference.save()
+        action.send(self.user1, verb='gyred and gimbled in', target=self.group)
+        self.assertTrue(models.ActionNotification.objects.filter(action__verb='gyred and gimbled in').exists())
+
+    def test_is_should_notify_actor_when_target(self):
+        follow(self.user1, self.user1, actor_only=False)
+
+        preference = models.ActionNotificationPreference.objects.create(action_verb='gyred and gimbled in')
+
+        preference.is_should_notify_actor_when_target = False
+        preference.save()
+        action.send(self.user1, verb='gyred and gimbled in', target=self.user1)
+        self.assertFalse(models.ActionNotification.objects.filter(action__verb='gyred and gimbled in').exists())
+
+        preference.is_should_notify_actor_when_target = True
+        preference.save()
+        action.send(self.user1, verb='gyred and gimbled in', target=self.user1)
+        self.assertTrue(models.ActionNotification.objects.filter(action__verb='gyred and gimbled in').exists())
