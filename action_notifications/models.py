@@ -61,6 +61,14 @@ class ActionNotification(models.Model):
             return self._message[2]
         return None
 
+    @property
+    def message_locale(self):
+        self._load_message()
+        if len(self._message) > 3:
+            return self._message[3]
+        return None
+
+
 class ActionNotificationPreference(models.Model):
     EMAIL_NOTIFICATION_FREQUENCIES = (
         ('* * * * *', 'Immediately',),

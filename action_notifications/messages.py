@@ -52,7 +52,7 @@ def get_message(action, *args, **kwargs):
         if all_satisfied:
             results = handler(action, *args, **kwargs)
             if isinstance(results, six.string_types):
-                return (results, None, None,)
+                return (results, None, None, None,)
             return results
 
 @message_handler()

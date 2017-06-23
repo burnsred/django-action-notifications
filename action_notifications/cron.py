@@ -7,7 +7,8 @@ from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
 from django.template import Context
 from django.template.loader import get_template
-from django.utils import timezone
+from django.utils import timezone, translation
+
 
 import kronos
 
@@ -46,6 +47,11 @@ def send_notifications_to_user(user, notifications, current_site):
             else:
                 from_email = settings.ACTION_NOTIFICATION_REPLY_EMAIL
 
+            if has_one_notification and notifications[0].message_locale is not None:
+                translation.activate(notifications[0].message_locale)
+            else:
+                translation.deactivate_all()
+
             message = EmailMultiAlternatives(
                 subject,
                 message_text_template.render(context),
@@ -59,7 +65,10 @@ def send_notifications_to_user(user, notifications, current_site):
                 notification.is_emailed = True
                 notification.when_emailed = timezone.now()
                 notification.save()
+
+            translation.deactivate_all()
     except Exception:
+        translation.deactivate_all()
         logger.exception('Failed to send notifications for user %s', user.username)
 
 
