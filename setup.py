@@ -3,6 +3,7 @@ from distutils.core import setup
 
 os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
+
 def get_packages(package):
     """
     Return root package and all sub-packages.
@@ -10,6 +11,7 @@ def get_packages(package):
     return [dirpath
             for dirpath, dirnames, filenames in os.walk(package)
             if os.path.exists(os.path.join(dirpath, '__init__.py'))]
+
 
 def get_package_data(package):
     """
@@ -26,12 +28,13 @@ def get_package_data(package):
                           for filename in filenames])
     return {package: filepaths}
 
+
 setup(
     name='django-action-notifications',
     version='0.0.11',
     packages=get_packages('action_notifications'),
     include_package_data=True,
-	package_data=get_package_data('action_notifications'),
+    package_data=get_package_data('action_notifications'),
     license='MIT License',
     author='Michael Bertolacci (BurnsRED)',
     author_email='michael@burnsred.com.au',
