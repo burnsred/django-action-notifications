@@ -113,10 +113,10 @@ def create_action_notification(sender, instance, **kwargs): # pylint: disable-ms
         Q(content_type=ContentType.objects.get_for_model(target), object_id=target.pk, actor_only=False)
     ).values_list('user')
 
+    notification_preference, _ = ActionNotificationPreference.objects.get_or_create(action_verb=_action_verb)
+
     # Create a notification for each user
     for user in get_user_model().objects.filter(pk__in=follow_users):
-        notification_preference, _ = ActionNotificationPreference.objects.get_or_create(action_verb=_action_verb)
-
         if not notification_preference.is_should_notify_actor \
             and action.actor == user \
             and ( \
