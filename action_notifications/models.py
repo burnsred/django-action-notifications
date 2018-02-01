@@ -5,6 +5,7 @@ from django.dispatch import receiver
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ImproperlyConfigured
 
 from actstream.models import Action, Follow
 try:
@@ -12,7 +13,7 @@ try:
 except ImportError:
     default_pusher = None
 
-from . import messages
+from . import messages, mixins
 
 class ActionNotification(models.Model):
     action = models.ForeignKey(Action)
@@ -24,6 +25,7 @@ class ActionNotification(models.Model):
     is_read = models.BooleanField(default=False, db_index=True)
     is_emailed = models.BooleanField(default=False, db_index=True)
 
+    do_not_send_before = models.DateTimeField(blank=True, null=True)
     when_emailed = models.DateTimeField(blank=True, null=True)
 
     created = models.DateTimeField(auto_now_add=True)
@@ -84,6 +86,10 @@ class ActionNotificationPreference(models.Model):
     # Email preferences
     is_should_email = models.BooleanField(default=False)
     is_should_email_separately = models.BooleanField(default=False)
+    use_user_preference = models.BooleanField(
+        default=False,
+        help_text='Setting this true will cause frequency and is_email_separately to be ignored'
+    )
     email_notification_frequency = models.CharField(
         max_length=64,
         choices=EMAIL_NOTIFICATION_FREQUENCIES,
@@ -98,6 +104,8 @@ def create_action_notification(sender, instance, **kwargs): # pylint: disable-ms
     action = instance
     actor = action.actor
     target = action.target
+    # Bind the verb locally
+    _action_verb = action.verb
 
     # Grab list of user ids following either the actor or the target
     follow_users = Follow.objects.filter(
@@ -107,7 +115,7 @@ def create_action_notification(sender, instance, **kwargs): # pylint: disable-ms
 
     # Create a notification for each user
     for user in get_user_model().objects.filter(pk__in=follow_users):
-        notification_preference, _ = ActionNotificationPreference.objects.get_or_create(action_verb=action.verb)
+        notification_preference, _ = ActionNotificationPreference.objects.get_or_create(action_verb=_action_verb)
 
         if not notification_preference.is_should_notify_actor \
             and action.actor == user \
@@ -120,7 +128,26 @@ def create_action_notification(sender, instance, **kwargs): # pylint: disable-ms
 
         action_notification = ActionNotification(action=action, user=user)
         action_notification.is_should_email = notification_preference.is_should_email
-        action_notification.is_should_email_separately = notification_preference.is_should_email_separately
+
+        if hasattr(settings, 'ACTION_NOTIFICATION_USER_PREFERENCES') \
+                and notification_preference.use_user_preference:
+            user_preference = getattr(
+                user,
+                settings.ACTION_NOTIFICATION_USER_PREFERENCE_FIELD_NAME
+            )
+            if not isinstance(user_preference, mixins.UserPreferenceMixin):
+                raise ImproperlyConfigured(
+                    'The ACTION_NOTIFICATION_USER_PREFERENCE_FIELD_NAME in your Django setting '
+                    'must inherit UserPreferenceMixin found in action_notification.mixins'
+                )
+            do_not_send_before, is_should_email_separately = user_preference.get_preference_for_action_verb(
+                _action_verb,
+                action
+            )
+            action_notification.is_should_email_separately = is_should_email_separately
+            action_notification.do_not_send_before = do_not_send_before
+        else:
+            action_notification.is_should_email_separately = notification_preference.is_should_email_separately
         action_notification.save()
 
         if default_pusher is not None:
