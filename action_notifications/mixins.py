@@ -1,8 +1,8 @@
-class UserPreferenceMixin():
+class UserPreferenceMixin(object):
     def get_preference_for_action_verb(self, verb, action=None):
         """
-        Abstract method used called in the default Action created listener, used to create notifications based on a
-        User's personal preference for a particular system action. Classes using this mixin must provide an 
+        Abstract method called in the default Action created listener, used to create notifications based on a
+        User's personal preference for a particular Activity. Classes using this mixin must provide an 
         implementation of this method 
         
         :param verb: Action verb that is being processed

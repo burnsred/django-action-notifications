@@ -100,7 +100,7 @@ class ActionNotificationPreference(models.Model):
         return u'notification preference for "{}"'.format(self.action_verb)
 
 @receiver(post_save, sender=Action)
-def create_action_notification(sender, instance, **kwargs): # pylint: disable-msg=unused-argument
+def create_action_notification(sender, instance, **kwargs): # pylint: disable-msg=unused-argument, too-many-locals
     action = instance
     actor = action.actor
     target = action.target
