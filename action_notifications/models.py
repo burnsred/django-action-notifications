@@ -133,19 +133,23 @@ def create_action_notification(sender, instance, **kwargs): # pylint: disable-ms
                 and notification_preference.use_user_preference:
             user_preference = getattr(
                 user,
-                settings.ACTION_NOTIFICATION_USER_PREFERENCE_FIELD_NAME
+                settings.ACTION_NOTIFICATION_USER_PREFERENCE_FIELD_NAME,
+                None
             )
-            if not isinstance(user_preference, mixins.UserPreferenceMixin):
-                raise ImproperlyConfigured(
-                    'The ACTION_NOTIFICATION_USER_PREFERENCE_FIELD_NAME in your Django setting '
-                    'must inherit UserPreferenceMixin found in action_notification.mixins'
+            if user_preference:
+                if not isinstance(user_preference, mixins.UserPreferenceMixin):
+                    raise ImproperlyConfigured(
+                        'The ACTION_NOTIFICATION_USER_PREFERENCE_FIELD_NAME in your Django setting '
+                        'must inherit UserPreferenceMixin found in action_notification.mixins'
+                    )
+                do_not_send_before, is_should_email_separately = user_preference.get_preference_for_action_verb(
+                    _action_verb,
+                    action
                 )
-            do_not_send_before, is_should_email_separately = user_preference.get_preference_for_action_verb(
-                _action_verb,
-                action
-            )
-            action_notification.is_should_email_separately = is_should_email_separately
-            action_notification.do_not_send_before = do_not_send_before
+                action_notification.is_should_email_separately = is_should_email_separately
+                action_notification.do_not_send_before = do_not_send_before
+            else:
+                action_notification.is_should_email_separately = notification_preference.is_should_email_separately
         else:
             action_notification.is_should_email_separately = notification_preference.is_should_email_separately
         action_notification.save()
