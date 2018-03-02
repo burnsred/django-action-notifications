@@ -3,6 +3,7 @@ import logging
 
 from django.conf import settings
 from django.contrib.sites.models import Site
+from django.core.exceptions import ImproperlyConfigured
 from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
 from django.template import Context
@@ -17,7 +18,7 @@ from . import models
 logger = logging.getLogger(__name__)
 
 
-def send_notifications_to_user(user, notifications, current_site):
+def send_notifications_to_user(user, notifications, current_site, template_notification=None): # pylint: disable-msg=too-many-branches,
     try:
         with transaction.atomic():
             subject_template = get_template('action_notifications/notifications_email_subject.txt')
@@ -34,23 +35,36 @@ def send_notifications_to_user(user, notifications, current_site):
             })
 
             has_one_notification = len(notifications) == 1
+            if template_notification:
+                if template_notification.message_subject is not None:
+                    subject = template_notification.message_subject
+                else:
+                    subject = subject_template.render(context)
 
-            subject = None
-            if has_one_notification and notifications[0].message_subject is not None:
-                subject = notifications[0].message_subject
-            else:
-                subject = subject_template.render(context)
+                if template_notification.message_from is not None:
+                    from_email = template_notification.message_from
+                else:
+                    from_email = settings.ACTION_NOTIFICATION_REPLY_EMAIL
 
-            from_email = None
-            if has_one_notification and notifications[0].message_from is not None:
-                from_email = notifications[0].message_from
+                if template_notification.message_locale is not None:
+                    translation.activate(template_notification.message_locale)
+                else:
+                    translation.deactivate_all()
             else:
-                from_email = settings.ACTION_NOTIFICATION_REPLY_EMAIL
+                if has_one_notification and notifications[0].message_subject is not None:
+                    subject = notifications[0].message_subject
+                else:
+                    subject = subject_template.render(context)
 
-            if has_one_notification and notifications[0].message_locale is not None:
-                translation.activate(notifications[0].message_locale)
-            else:
-                translation.deactivate_all()
+                if has_one_notification and notifications[0].message_from is not None:
+                    from_email = notifications[0].message_from
+                else:
+                    from_email = settings.ACTION_NOTIFICATION_REPLY_EMAIL
+
+                if has_one_notification and notifications[0].message_locale is not None:
+                    translation.activate(notifications[0].message_locale)
+                else:
+                    translation.deactivate_all()
 
             message = EmailMultiAlternatives(
                 subject,
@@ -77,6 +91,7 @@ def send_email_notifications_with_frequency(frequency):
         # Grab action_verbs with this frequency
         action_verbs = models.ActionNotificationPreference.objects \
             .filter(email_notification_frequency=frequency) \
+            .exclude(use_user_preference=True) \
             .values_list('action_verb', flat=True)
 
         # Find unsent notifications for the above action verbs
@@ -121,6 +136,55 @@ def send_email_notifications_with_frequency(frequency):
                 send_notifications_to_user(user, email_together, current_site)
 
 
+def send_email_notification_with_user_preference():
+    with transaction.atomic():
+        # Grab action_verbs with this frequency
+        action_verbs = models.ActionNotificationPreference.objects \
+            .filter(use_user_preference=True) \
+            .values_list('action_verb', flat=True)
+
+        # Find all notifications, that are ready to be sent according to user preference
+        unsent_notifications = models.ActionNotification.objects \
+            .select_for_update() \
+            .filter(
+            action__verb__in=action_verbs,
+            is_read=False,
+            is_emailed=False,
+            is_should_email=True,
+            do_not_send_before__lte=timezone.now()
+        ) \
+            .prefetch_related(
+            'action',
+            'user'
+        ) \
+            .order_by('-created')
+        unsent_notifications = sorted(unsent_notifications, key=lambda notification: notification.user)
+        notifications_by_user = groupby(unsent_notifications, key=lambda notification: notification.user)
+
+        current_site = Site.objects.get_current()
+
+        for user, notifications in notifications_by_user:
+            if not user.email:
+                continue
+
+            logger.debug('Sending emails for %s (%s)', user.username, user.email)
+            notifications = list(notifications)
+
+            email_separately = [
+                notification
+                for notification in notifications
+                if notification.is_should_email_separately
+            ]
+            email_together = [
+                notification
+                for notification in notifications
+                if not notification.is_should_email_separately
+            ]
+            for notification in email_separately:
+                send_notifications_to_user(user, [notification], current_site)
+            if len(email_together) > 0:
+                send_notifications_to_user(user, email_together, current_site, email_together[0])
+
 def register_email_notifications(frequency):
     '''Register a handler for the given cron string'''
     def func():
@@ -133,3 +197,14 @@ def register_email_notifications(frequency):
 
 for frequency, _ in models.ActionNotificationPreference.EMAIL_NOTIFICATION_FREQUENCIES:
     register_email_notifications(frequency)
+
+if getattr(settings, 'ACTION_NOTIFICATION_USER_PREFERENCES', None):
+    if not hasattr(settings, 'ACTION_NOTIFICATION_USER_PREFERENCE_FIELD_NAME'):
+        raise ImproperlyConfigured(
+            'You must set the ACTION_NOTIFICATION_USER_PREFERENCE_FIELD_NAME in your Django setting '
+            'file:\nSpecify a field name on the User model that inherits the UserPreferenceMixin Class found'
+            'in action_notification.mixins and implements all abstract methods'
+        )
+    kronos.register(
+        getattr(settings, 'ACTION_NOTIFICATION_USER_PREFERENCE_CRON_INTERVAL', '* * * * *'))\
+        (send_email_notification_with_user_preference)
