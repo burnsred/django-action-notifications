@@ -58,7 +58,7 @@ def get_message(action, *args, **kwargs):
 
 @message_handler()
 def default_handler(action, **_):
-    return action.__unicode__()
+    return action.__str__()
 
 @message_handler(actor_type=settings.AUTH_USER_MODEL)
 def user_actor_handler(action, **_):

@@ -38,7 +38,7 @@ class ActionNotification(models.Model):
 
     def __str__(self):
         return u'{} ({})'.format(
-            self.action.__unicode__(),
+            self.action.__str__(),
             'read' if self.is_read else 'unread'
         )
 
