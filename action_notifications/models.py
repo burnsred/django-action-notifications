@@ -16,8 +16,8 @@ except ImportError:
 from . import messages, mixins
 
 class ActionNotification(models.Model):
-    action = models.ForeignKey(Action)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, db_index=True, related_name='+')
+    action = models.ForeignKey(Action, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, db_index=True, related_name='+', on_delete=models.CASCADE)
 
     is_should_email = models.BooleanField(default=False, db_index=True)
     is_should_email_separately = models.BooleanField(default=False)
@@ -36,7 +36,7 @@ class ActionNotification(models.Model):
             ('action', 'user',),
         )
 
-    def __unicode__(self):
+    def __str__(self):
         return u'{} ({})'.format(
             self.action.__unicode__(),
             'read' if self.is_read else 'unread'
@@ -96,7 +96,7 @@ class ActionNotificationPreference(models.Model):
         default='@daily'
     )
 
-    def __unicode__(self):
+    def __str__(self):
         return u'notification preference for "{}"'.format(self.action_verb)
 
 @receiver(post_save, sender=Action)

@@ -132,7 +132,7 @@ def send_email_notifications_with_frequency(frequency):
             ]
             for notification in email_separately:
                 send_notifications_to_user(user, [notification], current_site)
-            if len(email_together) > 0:
+            if email_together:
                 send_notifications_to_user(user, email_together, current_site)
 
 
@@ -182,7 +182,7 @@ def send_email_notification_with_user_preference():
             ]
             for notification in email_separately:
                 send_notifications_to_user(user, [notification], current_site)
-            if len(email_together) > 0:
+            if email_together:
                 send_notifications_to_user(user, email_together, current_site, email_together[0])
 
 def register_email_notifications(frequency):
@@ -194,6 +194,7 @@ def register_email_notifications(frequency):
     func.__name__ = 'send_email_notifications_' + safe_frequency
 
     kronos.register(frequency)(func)
+
 
 for frequency, _ in models.ActionNotificationPreference.EMAIL_NOTIFICATION_FREQUENCIES:
     register_email_notifications(frequency)
