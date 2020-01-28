@@ -29,21 +29,21 @@ class ActionNotificationTestCase(BaseTestCase):
             target=self.group
         )
 
-    def test_unicode(self):
+    def test_str(self):
         action_notification = models.ActionNotification.objects.all()[0]
-        self.assertEquals(
-            action_notification.__unicode__(),
+        self.assertEqual(
+            action_notification.__str__(),
             'test2 gyred and gimbled in Test Group 0 minutes ago (unread)'
         )
 
     def test_create_on_action(self):
-        self.assertEquals(models.ActionNotification.objects.all().count(), 1)
+        self.assertEqual(models.ActionNotification.objects.all().count(), 1)
 
         action_notification = models.ActionNotification.objects.all()[0]
-        self.assertEquals(action_notification.user, self.user1)
-        self.assertEquals(action_notification.action.target, self.group)
-        self.assertEquals(action_notification.is_read, False)
-        self.assertEquals(action_notification.is_emailed, False)
+        self.assertEqual(action_notification.user, self.user1)
+        self.assertEqual(action_notification.action.target, self.group)
+        self.assertEqual(action_notification.is_read, False)
+        self.assertEqual(action_notification.is_emailed, False)
 
     @patch('action_notifications.models.default_pusher')
     def test_pusher(self, default_pusher_mock):
@@ -59,12 +59,12 @@ class ActionNotificationTestCase(BaseTestCase):
         )
 
 class ActionNotificationPreferenceTestCase(BaseTestCase):
-    def test_unicode(self):
+    def test_str(self):
         preference = models.ActionNotificationPreference.objects.create(
             action_verb='gyred and gimbled in',
             is_should_email=True
         )
-        self.assertEquals(preference.__unicode__(), 'notification preference for "gyred and gimbled in"')
+        self.assertEqual(preference.__str__(), 'notification preference for "gyred and gimbled in"')
 
     def test_email_preference(self):
         follow(self.user1, self.group, actor_only=False)
@@ -88,10 +88,10 @@ class ActionNotificationPreferenceTestCase(BaseTestCase):
         action_notification_2 = models.ActionNotification.objects.get(action__verb='gimbled and gyred in')
 
         # Has a preference, should be true
-        self.assertEquals(action_notification_1.is_should_email, True)
+        self.assertEqual(action_notification_1.is_should_email, True)
 
         # Has no preference, should be false by default
-        self.assertEquals(action_notification_2.is_should_email, False)
+        self.assertEqual(action_notification_2.is_should_email, False)
 
     def test_is_should_notify_actor(self):
         follow(self.user1, self.user1, actor_only=False)

@@ -23,6 +23,7 @@ def message_handler(**kwargs):
         return handler
     return wrap
 
+# pylint: disable=inconsistent-return-statements
 def get_message(action, *args, **kwargs):
     '''Finds a handler to match the message. Handlers are evaluated in the
     reverse order to which they were registered in, and the first handler to
@@ -52,12 +53,12 @@ def get_message(action, *args, **kwargs):
         if all_satisfied:
             results = handler(action, *args, **kwargs)
             if isinstance(results, six.string_types):
-                return (results, None, None, None,)
+                return results, None, None, None
             return results
 
 @message_handler()
 def default_handler(action, **_):
-    return action.__unicode__()
+    return action.__str__()
 
 @message_handler(actor_type=settings.AUTH_USER_MODEL)
 def user_actor_handler(action, **_):

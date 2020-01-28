@@ -21,8 +21,8 @@ class Migration(migrations.Migration):
                 ('is_read', models.BooleanField(default=False, db_index=True)),
                 ('is_emailed', models.BooleanField(default=False, db_index=True)),
                 ('created', models.DateTimeField(auto_now_add=True)),
-                ('action', models.ForeignKey(to='actstream.Action')),
-                ('user', models.ForeignKey(related_name='+', to=settings.AUTH_USER_MODEL)),
+                ('action', models.ForeignKey(to='actstream.Action', on_delete=models.CASCADE)),
+                ('user', models.ForeignKey(related_name='+', to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE)),
             ],
             options={
                 'ordering': ('-action__timestamp',),

@@ -31,7 +31,7 @@ def get_package_data(package):
 
 setup(
     name='django-action-notifications',
-    version='0.0.13',
+    version='0.0.14',
     packages=get_packages('action_notifications'),
     include_package_data=True,
     package_data=get_package_data('action_notifications'),
@@ -41,10 +41,10 @@ setup(
     url='',
     long_description=open('README.md').read(),
     install_requires=[
-        "Django >= 1.6, < 1.9",
-        "django-activity-stream >= 0.6.0",
-        "djangorestframework >= 3.1.1",
-        "django-filter >= 0.9.2",
-        "django-kronos >= 0.6",
+        "Django >= 2.2",
+        "django-activity-stream >= 0.8.0",
+        "djangorestframework >= 3.10.2",
+        "django-filter >= 2.2.0",
+        "django-kronos >= 1.0",
     ],
 )
