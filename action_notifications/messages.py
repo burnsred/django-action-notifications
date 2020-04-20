@@ -56,10 +56,12 @@ def get_message(action, *args, **kwargs):
                 return results, None, None, None
             return results
 
+# pylint: disable=unused-argument
 @message_handler()
 def default_handler(action, *args, **_):
     return action.__str__()
 
+# pylint: disable=unused-argument
 @message_handler(actor_type=settings.AUTH_USER_MODEL)
 def user_actor_handler(action, *args, **_):
     context = {
