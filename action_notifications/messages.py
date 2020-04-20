@@ -32,7 +32,7 @@ def get_message(action, *args, **kwargs):
     for conditions, handler in handlers:
         all_satisfied = True
 
-        for condition, value in conditions.iteritems():
+        for condition, value in conditions.items():
             if condition.endswith('_type'):
                 if isinstance(value, six.string_types):
                     try:
@@ -57,11 +57,11 @@ def get_message(action, *args, **kwargs):
             return results
 
 @message_handler()
-def default_handler(action, **_):
+def default_handler(action, *args, **_):
     return action.__str__()
 
 @message_handler(actor_type=settings.AUTH_USER_MODEL)
-def user_actor_handler(action, **_):
+def user_actor_handler(action, *args, **_):
     context = {
         'actor_name': '{} {}'.format(action.actor.first_name, action.actor.last_name),
         'verb': action.verb,
