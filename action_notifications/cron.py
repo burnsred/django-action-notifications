@@ -6,7 +6,6 @@ from django.contrib.sites.models import Site
 from django.core.exceptions import ImproperlyConfigured
 from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
-from django.template import Context
 from django.template.loader import get_template
 from django.utils import timezone, translation
 
@@ -25,14 +24,14 @@ def send_notifications_to_user(user, notifications, current_site, template_notif
             message_text_template = get_template('action_notifications/notifications_email_message_text.txt')
             message_html_template = get_template('action_notifications/notifications_email_message_html.txt')
 
-            context = Context({
+            context = {
                 'receiver': user,
                 'notifications': notifications,
                 'base_url': '{}://{}'.format(
                     'http' if settings.DEBUG else 'https',
                     current_site.domain
                 )
-            })
+            }
 
             has_one_notification = len(notifications) == 1
             if template_notification:
@@ -74,6 +73,7 @@ def send_notifications_to_user(user, notifications, current_site, template_notif
             )
             message.attach_alternative(message_html_template.render(context), 'text/html')
             message.send(fail_silently=False)
+            logger.info('Successfully sent emails for %s (%s)', user.username, user.email)
 
             for notification in notifications:
                 notification.is_emailed = True
