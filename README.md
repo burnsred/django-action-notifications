@@ -45,3 +45,11 @@ Install requires
 - `djangorestframework >= 3.1.1`
 - `django-filter >= 0.9.2`
 - `django-kronos >= 0.6`
+
+Latest version now updated to work with python3 and django2.2
+
+- `Django >= 2.2`
+- `django-activity-stream >= 0.8.0`
+- `djangorestframework >= 3.10.2`
+- `django-filter >= 2.2.0`
+- `django-kronos >= 1.0`
