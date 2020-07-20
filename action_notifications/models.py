@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ImproperlyConfigured
+from django.utils import timezone
 
 from actstream.models import Action, Follow
 try:
@@ -150,6 +151,7 @@ def create_action_notification(sender, instance, **kwargs): # pylint: disable-ms
                 action_notification.do_not_send_before = do_not_send_before
             else:
                 action_notification.is_should_email_separately = notification_preference.is_should_email_separately
+                action_notification.do_not_send_before = timezone.now()
         else:
             action_notification.is_should_email_separately = notification_preference.is_should_email_separately
         action_notification.save()
