@@ -1,4 +1,4 @@
-Django==2.2.9
+Django==2.2.24
 PyYAML==5.1.2
 astroid==2.2.5
 colorama==0.4.1
