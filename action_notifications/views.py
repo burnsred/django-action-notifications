@@ -11,7 +11,7 @@ class ActionNotificationPagination(pagination.CursorPagination):
     page_size = 10
 
 class ActionNotificationFilterSet(django_filters.FilterSet):
-    app_label = django_filters.MethodFilter(action='filter_app_label')
+    app_label = django_filters.CharFilter(method='filter_app_label')
 
     class Meta:
         model = models.ActionNotification
@@ -49,7 +49,7 @@ class ActionNotificationViewSet(viewsets.ReadOnlyModelViewSet):
             user=self.request.user
         )
 
-    @decorators.list_route(methods=['post'])
+    @decorators.action(detail=False, methods=['post'], name='Mark Read')
     def mark_read(self, request): # pylint: disable-msg=unused-argument
         updated_count = self.get_queryset() \
             .filter(is_read=False) \
