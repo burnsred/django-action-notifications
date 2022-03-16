@@ -24,8 +24,6 @@ if getattr(settings, 'ACTION_NOTIFICATIONS_CRON_TASK_WRAPPER_DECORATOR', None):
     for path_component in path:
         TASK_DECORATOR = getattr(module, path_component, None)
 
-print('task decor', TASK_DECORATOR)
-
 
 def send_notifications_to_user(user, notifications, current_site,
                                template_notification=None):  # pylint: disable-msg=too-many-branches,
