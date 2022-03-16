@@ -1,5 +1,7 @@
 from itertools import groupby
 import logging
+import importlib
+import kronos
 
 from django.conf import settings
 from django.contrib.sites.models import Site
@@ -9,15 +11,24 @@ from django.db import transaction
 from django.template.loader import get_template
 from django.utils import timezone, translation
 
-
-import kronos
-
 from . import models
 
 logger = logging.getLogger(__name__)
 
+ALWAYS_EMAIL_READ_NOTIFICATIONS = getattr(settings, 'ACTION_NOTIFICATION_ALWAYS_EMAIL_READ_NOTIFICATIONS', True)
 
-def send_notifications_to_user(user, notifications, current_site, template_notification=None): # pylint: disable-msg=too-many-branches,
+TASK_DECORATOR = None
+if getattr(settings, 'ACTION_NOTIFICATIONS_CRON_TASK_WRAPPER_DECORATOR', None):
+    path = settings.ACTION_NOTIFICATIONS_CRON_TASK_WRAPPER_DECORATOR.split('.')
+    module = importlib.import_module(path.pop(0))
+    for path_component in path:
+        TASK_DECORATOR = getattr(module, path_component, None)
+
+print('task decor', TASK_DECORATOR)
+
+
+def send_notifications_to_user(user, notifications, current_site,
+                               template_notification=None):  # pylint: disable-msg=too-many-branches,
     try:
         with transaction.atomic():
             subject_template = get_template('action_notifications/notifications_email_subject.txt')
@@ -94,19 +105,23 @@ def send_email_notifications_with_frequency(frequency):
             .exclude(use_user_preference=True) \
             .values_list('action_verb', flat=True)
 
+        read_kwargs = {}
+        if not ALWAYS_EMAIL_READ_NOTIFICATIONS:
+            read_kwargs['is_read'] = False
+
         # Find unsent notifications for the above action verbs
         unsent_notifications = models.ActionNotification.objects \
             .select_for_update() \
             .filter(
-                action__verb__in=action_verbs,
-                is_read=False,
-                is_emailed=False,
-                is_should_email=True
-            ) \
+            action__verb__in=action_verbs,
+            is_emailed=False,
+            is_should_email=True,
+            **read_kwargs
+        ) \
             .prefetch_related(
-                'action',
-                'user'
-            ) \
+            'action',
+            'user'
+        ) \
             .order_by('-created')
 
         unsent_notifications = sorted(unsent_notifications, key=lambda notification: notification.user)
@@ -143,15 +158,19 @@ def send_email_notification_with_user_preference():
             .filter(use_user_preference=True) \
             .values_list('action_verb', flat=True)
 
+        read_kwargs = {}
+        if not ALWAYS_EMAIL_READ_NOTIFICATIONS:
+            read_kwargs['is_read'] = False
+
         # Find all notifications, that are ready to be sent according to user preference
         unsent_notifications = models.ActionNotification.objects \
             .select_for_update() \
             .filter(
             action__verb__in=action_verbs,
-            is_read=False,
             is_emailed=False,
             is_should_email=True,
-            do_not_send_before__lte=timezone.now()
+            do_not_send_before__lte=timezone.now(),
+            **read_kwargs,
         ) \
             .prefetch_related(
             'action',
@@ -185,15 +204,20 @@ def send_email_notification_with_user_preference():
             if email_together:
                 send_notifications_to_user(user, email_together, current_site, email_together[0])
 
+
 def register_email_notifications(frequency):
     '''Register a handler for the given cron string'''
+
     def func():
         send_email_notifications_with_frequency(frequency)
 
     safe_frequency = frequency.replace('*', 'star').replace(' ', '_').replace('@', '').replace('/', 'slash')
     func.__name__ = 'send_email_notifications_' + safe_frequency
 
-    kronos.register(frequency)(func)
+    if TASK_DECORATOR:
+        kronos.register(frequency)(TASK_DECORATOR(func))
+    else:
+        kronos.register(frequency)(func)
 
 
 for frequency, _ in models.ActionNotificationPreference.EMAIL_NOTIFICATION_FREQUENCIES:
@@ -206,6 +230,11 @@ if getattr(settings, 'ACTION_NOTIFICATION_USER_PREFERENCES', None):
             'file:\nSpecify a field name on the User model that inherits the UserPreferenceMixin Class found'
             'in action_notification.mixins and implements all abstract methods'
         )
-    kronos.register(
-        getattr(settings, 'ACTION_NOTIFICATION_USER_PREFERENCE_CRON_INTERVAL', '* * * * *'))\
-        (send_email_notification_with_user_preference)
+    if TASK_DECORATOR:
+        kronos.register(
+            getattr(settings, 'ACTION_NOTIFICATION_USER_PREFERENCE_CRON_INTERVAL', '* * * * *')) \
+            (TASK_DECORATOR(send_email_notification_with_user_preference))
+    else:
+        kronos.register(
+            getattr(settings, 'ACTION_NOTIFICATION_USER_PREFERENCE_CRON_INTERVAL', '* * * * *')) \
+            (send_email_notification_with_user_preference)

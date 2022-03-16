@@ -21,6 +21,9 @@ class ActionSerializer(serializers.ModelSerializer):
 class ActionNotificationSerializer(serializers.ModelSerializer):
     action = ActionSerializer(read_only=True)
     user = serializers.SlugRelatedField(slug_field='username', read_only=True)
+    message_subject = serializers.CharField(read_only=True)
+    message_body = serializers.CharField(read_only=True)
 
     class Meta:
         model = models.ActionNotification
+        fields = '__all__'
