@@ -3,7 +3,7 @@ PyYAML==5.1.2
 astroid==2.2.5
 colorama==0.4.1
 django-activity-stream==0.8.0
-django-filter==2.2.0
+django-filter==2.4.0
 django-kronos==1.0
 djangorestframework==3.11.2
 dodgy==0.2.1
