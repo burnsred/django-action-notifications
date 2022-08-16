@@ -81,6 +81,11 @@ def send_notifications_to_user(user, notifications, current_site,
                 [user.email]
             )
             message.attach_alternative(message_html_template.render(context), 'text/html')
+
+            for notification in notifications:
+                for attachment in notification.message_attachments:
+                    message.attach(attachment.name, attachment.read())
+
             message.send(fail_silently=False)
             logger.info('Successfully sent emails for %s (%s)', user.username, user.email)
 
