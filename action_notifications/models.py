@@ -60,6 +60,13 @@ class ActionNotification(models.Model):
             return self._message[3]
         return None
 
+    @property
+    def message_attachments(self):
+        self._load_message()
+        if len(self._message) > 4:
+            return self._message[4]
+        return []
+
 
 class ActionNotificationPreference(models.Model):
     EMAIL_NOTIFICATION_FREQUENCIES = (

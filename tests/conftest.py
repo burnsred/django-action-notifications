@@ -35,10 +35,12 @@ def pytest_configure():
         PASSWORD_HASHERS=(
             'django.contrib.auth.hashers.MD5PasswordHasher',
         ),
+        DEFAULT_INDEX_TABLESPACE=1,
     )
 
     try:
         import django
         django.setup()
+        import action_notifications.handlers
     except AttributeError:
         pass
