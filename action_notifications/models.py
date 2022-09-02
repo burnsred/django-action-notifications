@@ -76,6 +76,12 @@ class ActionNotificationPreference(models.Model):
     # Email preferences
     is_should_email = models.BooleanField(default=False)
     is_should_email_separately = models.BooleanField(default=False)
+    follow_topic = models.CharField(
+        default='',
+        blank=True,
+        max_length=255,
+        help_text='If a topic is set, only follow relationships with that topic are selected'
+    )
     use_user_preference = models.BooleanField(
         default=False,
         help_text='Setting this true will cause frequency and is_email_separately to be ignored'
