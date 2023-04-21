@@ -7,7 +7,7 @@ except ImportError:
     from django.db.models.loading import get_model
 
 from django.conf import settings
-from django.utils import six
+import six
 
 handlers = []
 
