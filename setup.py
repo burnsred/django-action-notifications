@@ -31,7 +31,7 @@ def get_package_data(package):
 
 setup(
     name='django-action-notifications',
-    version='0.0.20',
+    version='0.0.21',
     packages=get_packages('action_notifications'),
     include_package_data=True,
     package_data=get_package_data('action_notifications'),
