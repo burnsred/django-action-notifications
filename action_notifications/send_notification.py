@@ -26,7 +26,7 @@ def send_user_notification(subject_template, message_template, context, receiver
         send_mail(
             subject_template.render(context),
             message_template.render(context),
-            sender or 'noreply@clough.com.au',
+            sender or settings.DEFAULT_FROM_EMAIL,
             [receiver.email],
             fail_silently=False
         )
