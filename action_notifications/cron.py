@@ -87,7 +87,9 @@ def send_notifications_to_user(user, notifications, current_site,
                     message.attach(attachment.name, attachment.read())
 
             message.send(fail_silently=False)
-            logger.info('Successfully sent emails for %s (%s)', user.username, user.email)
+            logger.info(
+                "Successfully sent emails for %s (%s)", user.get_username(), user.email
+            )
 
             for notification in notifications:
                 notification.is_emailed = True
@@ -97,7 +99,9 @@ def send_notifications_to_user(user, notifications, current_site,
             translation.deactivate_all()
     except Exception:
         translation.deactivate_all()
-        logger.exception('Failed to send notifications for user %s', user.username)
+        logger.exception(
+            "Failed to send notifications for user %s", user.get_username()
+        )
 
 
 def send_email_notifications_with_frequency(frequency):
@@ -135,7 +139,7 @@ def send_email_notifications_with_frequency(frequency):
         for user, notifications in notifications_by_user:
             if not user.email:
                 continue
-            logger.debug('Sending emails for %s (%s)', user.username, user.email)
+            logger.debug("Sending emails for %s (%s)", user.get_username(), user.email)
             notifications = list(notifications)
 
             email_separately = [
@@ -189,7 +193,7 @@ def send_email_notification_with_user_preference():
             if not user.email:
                 continue
 
-            logger.debug('Sending emails for %s (%s)', user.username, user.email)
+            logger.debug("Sending emails for %s (%s)", user.get_username(), user.email)
             notifications = list(notifications)
 
             email_separately = [
