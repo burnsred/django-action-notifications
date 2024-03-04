@@ -4,10 +4,19 @@ from django.conf import settings
 from actstream.models import Action
 
 from . import messages
+from .mixins import NotifiablePerson
+
 
 class ActionNotification(models.Model):
     action = models.ForeignKey(Action, on_delete=models.CASCADE)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, db_index=True, related_name='+', on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        db_index=True,
+        null=True,
+        blank=True,
+        related_name='+',
+        on_delete=models.CASCADE
+    )
 
     is_should_email = models.BooleanField(default=False, db_index=True)
     is_should_email_separately = models.BooleanField(default=False)
@@ -34,7 +43,17 @@ class ActionNotification(models.Model):
 
     def _load_message(self):
         if not hasattr(self, '_message'):
-            self._message = messages.get_message(self.action, self.user)
+            self._message = messages.get_message(self.action, self.target)
+
+    @property
+    def person(self):
+        if self.user:
+            return self.user
+        elif isinstance(self.action.target, NotifiablePerson):
+            return self.action.target.as_user_object()
+        raise ValueError(
+            'Action notification has no user and the action target is not a Subclass of Notifiable Person'
+        )
 
     @property
     def message_body(self):

@@ -1,21 +1,19 @@
 from itertools import groupby
-import logging
 import importlib
 import kronos
 
 from django.conf import settings
 from django.contrib.sites.models import Site
 from django.core.exceptions import ImproperlyConfigured
-from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
-from django.template.loader import get_template
-from django.utils import timezone, translation
+from django.utils import timezone
 
 from . import models
+from .logger import logger
+from .send_notification import send_notifications_to_user
 
-logger = logging.getLogger(__name__)
-
-ALWAYS_EMAIL_READ_NOTIFICATIONS = getattr(settings, 'ACTION_NOTIFICATION_ALWAYS_EMAIL_READ_NOTIFICATIONS', True)
+ALWAYS_EMAIL_READ_NOTIFICATIONS = getattr(
+    settings, 'ACTION_NOTIFICATION_ALWAYS_EMAIL_READ_NOTIFICATIONS', True)
 
 TASK_DECORATOR = None
 if getattr(settings, 'ACTION_NOTIFICATIONS_CRON_TASK_WRAPPER_DECORATOR', None):
@@ -23,81 +21,6 @@ if getattr(settings, 'ACTION_NOTIFICATIONS_CRON_TASK_WRAPPER_DECORATOR', None):
     module = importlib.import_module(path.pop(0))
     for path_component in path:
         TASK_DECORATOR = getattr(module, path_component, None)
-
-
-def send_notifications_to_user(user, notifications, current_site,
-                               template_notification=None):  # pylint: disable-msg=too-many-branches,
-    try:
-        with transaction.atomic():
-            subject_template = get_template('action_notifications/notifications_email_subject.txt')
-            message_text_template = get_template('action_notifications/notifications_email_message_text.txt')
-            message_html_template = get_template('action_notifications/notifications_email_message_html.txt')
-
-            context = {
-                'receiver': user,
-                'notifications': notifications,
-                'base_url': '{}://{}'.format(
-                    'http' if settings.DEBUG else 'https',
-                    current_site.domain
-                )
-            }
-
-            has_one_notification = len(notifications) == 1
-            if template_notification:
-                if template_notification.message_subject is not None:
-                    subject = template_notification.message_subject
-                else:
-                    subject = subject_template.render(context)
-
-                if template_notification.message_from is not None:
-                    from_email = template_notification.message_from
-                else:
-                    from_email = settings.ACTION_NOTIFICATION_REPLY_EMAIL
-
-                if template_notification.message_locale is not None:
-                    translation.activate(template_notification.message_locale)
-                else:
-                    translation.deactivate_all()
-            else:
-                if has_one_notification and notifications[0].message_subject is not None:
-                    subject = notifications[0].message_subject
-                else:
-                    subject = subject_template.render(context)
-
-                if has_one_notification and notifications[0].message_from is not None:
-                    from_email = notifications[0].message_from
-                else:
-                    from_email = settings.ACTION_NOTIFICATION_REPLY_EMAIL
-
-                if has_one_notification and notifications[0].message_locale is not None:
-                    translation.activate(notifications[0].message_locale)
-                else:
-                    translation.deactivate_all()
-
-            message = EmailMultiAlternatives(
-                subject,
-                message_text_template.render(context),
-                from_email,
-                [user.email]
-            )
-            message.attach_alternative(message_html_template.render(context), 'text/html')
-
-            for notification in notifications:
-                for attachment in notification.message_attachments:
-                    message.attach(attachment.name, attachment.read())
-
-            message.send(fail_silently=False)
-            logger.info('Successfully sent emails for %s (%s)', user.username, user.email)
-
-            for notification in notifications:
-                notification.is_emailed = True
-                notification.when_emailed = timezone.now()
-                notification.save()
-
-            translation.deactivate_all()
-    except Exception:
-        translation.deactivate_all()
-        logger.exception('Failed to send notifications for user %s', user.username)
 
 
 def send_email_notifications_with_frequency(frequency):
@@ -116,26 +39,29 @@ def send_email_notifications_with_frequency(frequency):
         unsent_notifications = models.ActionNotification.objects \
             .select_for_update() \
             .filter(
-            action__verb__in=action_verbs,
-            is_emailed=False,
-            is_should_email=True,
-            **read_kwargs
-        ) \
+                action__verb__in=action_verbs,
+                is_emailed=False,
+                is_should_email=True,
+                **read_kwargs
+            ) \
             .prefetch_related(
-            'action',
-            'user'
-        ) \
+                'action',
+                'user'
+            ) \
             .order_by('-created')
 
-        unsent_notifications = sorted(unsent_notifications, key=lambda notification: notification.user)
-        notifications_by_user = groupby(unsent_notifications, key=lambda notification: notification.user)
+        unsent_notifications = sorted(
+            unsent_notifications, key=lambda notification: notification.user)
+        notifications_by_user = groupby(
+            unsent_notifications, key=lambda notification: notification.user)
 
         current_site = Site.objects.get_current()
 
         for user, notifications in notifications_by_user:
             if not user.email:
                 continue
-            logger.debug('Sending emails for %s (%s)', user.username, user.email)
+            logger.debug('Sending emails for %s (%s)',
+                         user.username, user.email)
             notifications = list(notifications)
 
             email_separately = [
@@ -169,19 +95,23 @@ def send_email_notification_with_user_preference():
         unsent_notifications = models.ActionNotification.objects \
             .select_for_update() \
             .filter(
-            action__verb__in=action_verbs,
-            is_emailed=False,
-            is_should_email=True,
-            do_not_send_before__lte=timezone.now(),
-            **read_kwargs,
-        ) \
+                action__verb__in=action_verbs,
+                is_emailed=False,
+                is_should_email=True,
+                do_not_send_before__lte=timezone.now(),
+                **read_kwargs,
+            ) \
             .prefetch_related(
-            'action',
-            'user'
-        ) \
+                'action',
+                'user'
+            ) \
             .order_by('-created')
-        unsent_notifications = sorted(unsent_notifications, key=lambda notification: notification.user)
-        notifications_by_user = groupby(unsent_notifications, key=lambda notification: notification.user)
+        unsent_notifications = sorted(
+            unsent_notifications, key=lambda notification: notification.user
+        )
+        notifications_by_user = groupby(
+            unsent_notifications, key=lambda notification: notification.user
+        )
 
         current_site = Site.objects.get_current()
 
@@ -189,7 +119,8 @@ def send_email_notification_with_user_preference():
             if not user.email:
                 continue
 
-            logger.debug('Sending emails for %s (%s)', user.username, user.email)
+            logger.debug('Sending emails for %s (%s)',
+                         user.username, user.email)
             notifications = list(notifications)
 
             email_separately = [
@@ -205,7 +136,9 @@ def send_email_notification_with_user_preference():
             for notification in email_separately:
                 send_notifications_to_user(user, [notification], current_site)
             if email_together:
-                send_notifications_to_user(user, email_together, current_site, email_together[0])
+                send_notifications_to_user(
+                    user, email_together, current_site, email_together[0]
+                )
 
 
 def register_email_notifications(frequency):
@@ -214,7 +147,8 @@ def register_email_notifications(frequency):
     def func():
         send_email_notifications_with_frequency(frequency)
 
-    safe_frequency = frequency.replace('*', 'star').replace(' ', '_').replace('@', '').replace('/', 'slash')
+    safe_frequency = frequency.replace(
+        '*', 'star').replace(' ', '_').replace('@', '').replace('/', 'slash')
     func.__name__ = 'send_email_notifications_' + safe_frequency
 
     if TASK_DECORATOR:
@@ -235,9 +169,7 @@ if getattr(settings, 'ACTION_NOTIFICATION_USER_PREFERENCES', None):
         )
     if TASK_DECORATOR:
         kronos.register(
-            getattr(settings, 'ACTION_NOTIFICATION_USER_PREFERENCE_CRON_INTERVAL', '* * * * *')) \
-            (TASK_DECORATOR(send_email_notification_with_user_preference))
+            getattr(settings, 'ACTION_NOTIFICATION_USER_PREFERENCE_CRON_INTERVAL', '* * * * *'))(TASK_DECORATOR(send_email_notification_with_user_preference))
     else:
         kronos.register(
-            getattr(settings, 'ACTION_NOTIFICATION_USER_PREFERENCE_CRON_INTERVAL', '* * * * *')) \
-            (send_email_notification_with_user_preference)
+            getattr(settings, 'ACTION_NOTIFICATION_USER_PREFERENCE_CRON_INTERVAL', '* * * * *'))(send_email_notification_with_user_preference)
